@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   EMPTY,
   DIFFICULTIES,
+  candidatesFor,
   type Difficulty,
   generateSolution,
   generatePuzzle,
@@ -68,6 +69,16 @@ test('findConflicts is empty for a legal partial board', () => {
   board[1] = 2;
   board[9] = 3;
   assert.equal(findConflicts(board).size, 0);
+});
+
+test('candidatesFor excludes values used by peers', () => {
+  const board = new Array(81).fill(EMPTY);
+  assert.deepEqual(candidatesFor(board, 0), [1, 2, 3, 4, 5, 6, 7, 8, 9]);
+
+  board[1] = 5; // same row
+  board[9] = 3; // same column and box
+  board[10] = 7; // same box
+  assert.deepEqual(candidatesFor(board, 0), [1, 2, 4, 6, 8, 9]);
 });
 
 test('peersOf covers row, column, and box without the cell itself', () => {

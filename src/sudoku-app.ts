@@ -2,6 +2,7 @@ import { LitElement, html, css, type TemplateResult } from 'lit';
 import {
   EMPTY,
   DIFFICULTIES,
+  candidatesFor,
   generatePuzzle,
   findConflicts,
   isComplete,
@@ -20,6 +21,7 @@ export class SudokuApp extends LitElement {
     candidates: { state: true },
     selected: { state: true },
     candidatesMode: { state: true },
+    autoCandidates: { state: true },
     won: { state: true },
     elapsed: { state: true },
   };
@@ -30,12 +32,14 @@ export class SudokuApp extends LitElement {
   declare candidates: Set<number>[];
   declare selected: number;
   declare candidatesMode: boolean;
+  declare autoCandidates: boolean;
   declare won: boolean;
   declare elapsed: number;
 
   constructor() {
     super();
     this.difficulty = 'medium';
+    this.autoCandidates = false;
     this.#newGame();
   }
 
@@ -77,6 +81,10 @@ export class SudokuApp extends LitElement {
     .btn:hover,
     select:hover {
       border-color: var(--line-strong);
+    }
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: default;
     }
     .status {
       display: flex;
@@ -179,6 +187,13 @@ export class SudokuApp extends LitElement {
     return findConflicts(this.board);
   }
 
+  /** Candidates derived from the board, used when Auto Candidates is on. */
+  get #computedCandidates(): Set<number>[] {
+    return this.board.map((value, i) =>
+      value === EMPTY ? new Set(candidatesFor(this.board, i)) : new Set<number>()
+    );
+  }
+
   /** Values that already appear 9 times without conflicts. */
   get #exhausted(): Set<number> {
     const counts = new Map<number, number>();
@@ -197,7 +212,8 @@ export class SudokuApp extends LitElement {
     if (i < 0 || this.puzzle[i] !== EMPTY || this.won) return;
 
     if (this.candidatesMode && value !== EMPTY) {
-      if (this.board[i] !== EMPTY) return;
+      // Auto mode derives candidates from the board; manual edits don't apply.
+      if (this.autoCandidates || this.board[i] !== EMPTY) return;
       const candidates = new Set(this.candidates[i]);
       candidates.has(value) ? candidates.delete(value) : candidates.add(value);
       this.candidates = this.candidates.map((n, j) => (j === i ? candidates : n));
@@ -240,6 +256,8 @@ export class SudokuApp extends LitElement {
       if (next >= 0 && next < 81) this.selected = next;
     } else if (event.key.toLowerCase() === 'c') {
       this.candidatesMode = !this.candidatesMode;
+    } else if (event.key.toLowerCase() === 'a') {
+      this.autoCandidates = !this.autoCandidates;
     }
   };
 
@@ -284,7 +302,9 @@ export class SudokuApp extends LitElement {
       <sudoku-board
         .board=${this.board}
         .puzzle=${this.puzzle}
-        .candidates=${this.candidates}
+        .candidates=${this.autoCandidates
+          ? this.#computedCandidates
+          : this.candidates}
         .selected=${this.selected}
         .conflicts=${this.#conflicts}
         @cell-selected=${(e: CustomEvent<{ index: number }>) =>
@@ -309,9 +329,17 @@ export class SudokuApp extends LitElement {
         <button
           class="btn"
           aria-pressed=${this.candidatesMode}
+          ?disabled=${this.autoCandidates}
           @click=${() => (this.candidatesMode = !this.candidatesMode)}
         >
           ✏️ Candidates ${this.candidatesMode ? 'on' : 'off'}
+        </button>
+        <button
+          class="btn"
+          aria-pressed=${this.autoCandidates}
+          @click=${() => (this.autoCandidates = !this.autoCandidates)}
+        >
+          ⚡ Auto ${this.autoCandidates ? 'on' : 'off'}
         </button>
         <button class="btn" @click=${() => this.#setValue(EMPTY)}>
           ⌫ Erase

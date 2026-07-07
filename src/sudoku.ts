@@ -56,7 +56,8 @@ export function peersOf(index: number): Set<number> {
   return peers;
 }
 
-function candidatesFor(board: Board, index: number): number[] {
+/** Values that can legally be placed at the given cell. */
+export function candidatesFor(board: Board, index: number): number[] {
   const used = new Set<number>();
   for (const peer of peersOf(index)) {
     if (board[peer] !== EMPTY) used.add(board[peer]);
