@@ -6,6 +6,7 @@ import {
   generatePuzzle,
   findConflicts,
   isComplete,
+  parseBoard,
   peersOf,
   type Board,
   type Difficulty,
@@ -42,7 +43,8 @@ export class SudokuApp extends LitElement {
     super();
     this.difficulty = 'medium';
     this.autoCandidates = false;
-    this.#newGame();
+    const shared = new URLSearchParams(window.location.search).get('s');
+    this.#newGame((shared && parseBoard(shared)) || undefined);
   }
 
   static styles = css`
@@ -170,12 +172,14 @@ export class SudokuApp extends LitElement {
 
   #timer?: ReturnType<typeof setInterval>;
   #startTime = 0;
-  #solution: Board = [];
 
-  #newGame(): void {
-    const { puzzle, solution } = generatePuzzle(this.difficulty);
+  /** Start a game from the given puzzle, or a freshly generated one. */
+  #newGame(puzzle?: Board): void {
+    if (!puzzle) {
+      puzzle = generatePuzzle(this.difficulty).puzzle;
+      this.#clearSharedBoardParam();
+    }
     this.puzzle = puzzle;
-    this.#solution = solution;
     this.board = puzzle.slice();
     this.candidates = Array.from({ length: 81 }, () => new Set<number>());
     this.removedCandidates = Array.from({ length: 81 }, () => new Set<number>());
@@ -184,6 +188,15 @@ export class SudokuApp extends LitElement {
     this.won = false;
     this.elapsed = 0;
     this.#startTime = Date.now();
+  }
+
+  /** Drop the `s` parameter so a reload doesn't bring the old board back. */
+  #clearSharedBoardParam(): void {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has('s')) return;
+    params.delete('s');
+    const query = params.size ? `?${params}` : '';
+    history.replaceState(null, '', window.location.pathname + query + window.location.hash);
   }
 
   get #conflicts(): Set<number> {

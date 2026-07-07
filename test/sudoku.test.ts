@@ -4,6 +4,7 @@ import {
   EMPTY,
   DIFFICULTIES,
   candidatesFor,
+  parseBoard,
   type Difficulty,
   generateSolution,
   generatePuzzle,
@@ -79,6 +80,21 @@ test('candidatesFor excludes values used by peers', () => {
   board[9] = 3; // same column and box
   board[10] = 7; // same box
   assert.deepEqual(candidatesFor(board, 0), [1, 2, 4, 6, 8, 9]);
+});
+
+test('parseBoard round-trips a puzzle string', () => {
+  const { puzzle } = generatePuzzle('easy');
+  const text = puzzle.join('');
+  assert.deepEqual(parseBoard(text), puzzle);
+});
+
+test('parseBoard rejects malformed strings', () => {
+  assert.equal(parseBoard(''), null);
+  assert.equal(parseBoard('123'), null);
+  assert.equal(parseBoard('0'.repeat(80)), null);
+  assert.equal(parseBoard('0'.repeat(82)), null);
+  assert.equal(parseBoard('a'.repeat(81)), null);
+  assert.equal(parseBoard('0'.repeat(80) + 'x'), null);
 });
 
 test('peersOf covers row, column, and box without the cell itself', () => {

@@ -17,6 +17,8 @@ A Sudoku web game built with [Lit](https://lit.dev) and TypeScript.
 - **Number pad** with completed digits greyed out, elapsed timer,
   fill counter, and a win overlay
 - Light and dark theme, following your system preference
+- **Load a board from the URL**: pass `?s=<81 digits>` where each digit
+  is a cell's initial value in reading order and `0` means empty
 
 ### Keyboard controls
 

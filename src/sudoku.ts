@@ -158,6 +158,15 @@ export function generatePuzzle(difficulty: Difficulty = 'medium'): {
   return { puzzle, solution };
 }
 
+/**
+ * Parse a board from a string of 81 digits (0 = empty cell), as used in
+ * the `s` URL query parameter. Returns null if the string is malformed.
+ */
+export function parseBoard(text: string): Board | null {
+  if (!/^[0-9]{81}$/.test(text)) return null;
+  return [...text].map(Number);
+}
+
 /** Indices of filled cells that conflict with a peer. */
 export function findConflicts(board: Board): Set<number> {
   const conflicts = new Set<number>();
