@@ -181,17 +181,27 @@ export class SudokuApp extends LitElement {
     this.won = false;
     this.elapsed = 0;
     this.#startTime = Date.now();
+    if (this.autoCandidates) this.#fillAutoCandidates();
   }
 
   get #conflicts(): Set<number> {
     return findConflicts(this.board);
   }
 
-  /** Candidates derived from the board, used when Auto Candidates is on. */
-  get #computedCandidates(): Set<number>[] {
-    return this.board.map((value, i) =>
+  /**
+   * Fill every empty cell's candidates from the board. The result is
+   * ordinary user-editable state: the user can remove individual marks,
+   * and placing a number prunes it from peers as usual.
+   */
+  #fillAutoCandidates(): void {
+    this.candidates = this.board.map((value, i) =>
       value === EMPTY ? new Set(candidatesFor(this.board, i)) : new Set<number>()
     );
+  }
+
+  #toggleAutoCandidates(): void {
+    this.autoCandidates = !this.autoCandidates;
+    if (this.autoCandidates) this.#fillAutoCandidates();
   }
 
   /** Values that already appear 9 times without conflicts. */
@@ -212,8 +222,7 @@ export class SudokuApp extends LitElement {
     if (i < 0 || this.puzzle[i] !== EMPTY || this.won) return;
 
     if (this.candidatesMode && value !== EMPTY) {
-      // Auto mode derives candidates from the board; manual edits don't apply.
-      if (this.autoCandidates || this.board[i] !== EMPTY) return;
+      if (this.board[i] !== EMPTY) return;
       const candidates = new Set(this.candidates[i]);
       candidates.has(value) ? candidates.delete(value) : candidates.add(value);
       this.candidates = this.candidates.map((n, j) => (j === i ? candidates : n));
@@ -257,7 +266,7 @@ export class SudokuApp extends LitElement {
     } else if (event.key.toLowerCase() === 'c') {
       this.candidatesMode = !this.candidatesMode;
     } else if (event.key.toLowerCase() === 'a') {
-      this.autoCandidates = !this.autoCandidates;
+      this.#toggleAutoCandidates();
     }
   };
 
@@ -302,9 +311,7 @@ export class SudokuApp extends LitElement {
       <sudoku-board
         .board=${this.board}
         .puzzle=${this.puzzle}
-        .candidates=${this.autoCandidates
-          ? this.#computedCandidates
-          : this.candidates}
+        .candidates=${this.candidates}
         .selected=${this.selected}
         .conflicts=${this.#conflicts}
         @cell-selected=${(e: CustomEvent<{ index: number }>) =>
@@ -329,7 +336,6 @@ export class SudokuApp extends LitElement {
         <button
           class="btn"
           aria-pressed=${this.candidatesMode}
-          ?disabled=${this.autoCandidates}
           @click=${() => (this.candidatesMode = !this.candidatesMode)}
         >
           ✏️ Candidates ${this.candidatesMode ? 'on' : 'off'}
@@ -337,7 +343,7 @@ export class SudokuApp extends LitElement {
         <button
           class="btn"
           aria-pressed=${this.autoCandidates}
-          @click=${() => (this.autoCandidates = !this.autoCandidates)}
+          @click=${() => this.#toggleAutoCandidates()}
         >
           ⚡ Auto ${this.autoCandidates ? 'on' : 'off'}
         </button>
