@@ -19,6 +19,7 @@ import {
   type Difficulty,
 } from './sudoku.js';
 import { launchConfetti } from './confetti.js';
+import { boing, ejectDigit, jelly, scream, shake } from './bonkers.js';
 import wilhelmScreamUrl from './assets/wilhelm-scream.mp3';
 import './sudoku-board.js';
 
@@ -35,6 +36,7 @@ export class SudokuApp extends LitElement {
     autoCandidates: { state: true },
     autofill: { state: true },
     autofilled: { state: true },
+    bonkers: { state: true },
     won: { state: true },
     elapsed: { state: true },
   };
@@ -49,6 +51,7 @@ export class SudokuApp extends LitElement {
   declare autoCandidates: boolean;
   declare autofill: boolean;
   declare autofilled: Set<number>;
+  declare bonkers: boolean;
   declare won: boolean;
   declare elapsed: number;
 
@@ -57,6 +60,7 @@ export class SudokuApp extends LitElement {
     this.difficulty = 'medium';
     this.autoCandidates = false;
     this.autofill = false;
+    this.bonkers = false;
     const shared = new URLSearchParams(window.location.search).get('s');
     this.#newGame((shared && parseBoard(shared)) || undefined);
   }
@@ -344,6 +348,7 @@ export class SudokuApp extends LitElement {
       return;
     }
 
+    const previous = this.board[i];
     const board = this.board.slice();
     board[i] = board[i] === value ? EMPTY : value;
     this.#place(i, board);
@@ -353,7 +358,29 @@ export class SudokuApp extends LitElement {
       autofilled.delete(i);
       this.autofilled = autofilled;
     }
+    if (this.bonkers) this.#goBonkers(i, previous, board[i]);
     this.#runAutofill();
+  }
+
+  /** Cartoon consequences for changing cell `i` from `previous` to `value`. */
+  #goBonkers(i: number, previous: number, value: number): void {
+    const boardEl = this.renderRoot.querySelector('sudoku-board');
+    if (previous !== EMPTY && previous !== value) {
+      // The old digit is violently evicted, screaming.
+      const rect = boardEl?.cellRect(i);
+      if (rect) ejectDigit(String(previous), rect);
+      scream(wilhelmScreamUrl);
+    }
+    if (value !== EMPTY) {
+      if (boardEl) jelly(boardEl);
+      if (this.#conflicts.has(i)) {
+        // A mistake this dramatic deserves slow motion.
+        shake(this);
+        scream(wilhelmScreamUrl, 0.45, 0.7);
+      } else {
+        boing();
+      }
+    }
   }
 
   /** Commit an updated board where cell `i` changed, with bookkeeping. */
@@ -394,6 +421,12 @@ export class SudokuApp extends LitElement {
     void new Audio(wilhelmScreamUrl).play().catch(() => {
       // Audio is best-effort; the confetti still flies.
     });
+    if (this.bonkers) {
+      // In Bonkers mode, one scream is never enough: a rising barrage.
+      [400, 750, 1050, 1300].forEach((delay, k) =>
+        setTimeout(() => scream(wilhelmScreamUrl, 0.55 + k * 0.3), delay)
+      );
+    }
   }
 
   #toggleAutofill(): void {
@@ -424,6 +457,10 @@ export class SudokuApp extends LitElement {
       this.autofilled = new Set(this.autofilled).add(single.index);
       this.#place(single.index, board);
       this.#playTone(step);
+      if (this.bonkers) {
+        const boardEl = this.renderRoot.querySelector('sudoku-board');
+        if (boardEl) jelly(boardEl);
+      }
     }
   }
 
@@ -474,6 +511,9 @@ export class SudokuApp extends LitElement {
       this.#toggleAutoCandidates();
     } else if (event.key.toLowerCase() === 'f') {
       this.#toggleAutofill();
+    } else if (event.key.toLowerCase() === 'b') {
+      this.bonkers = !this.bonkers;
+      if (this.bonkers) boing();
     }
   };
 
@@ -561,6 +601,16 @@ export class SudokuApp extends LitElement {
           @click=${() => this.#toggleAutofill()}
         >
           ✨ Fill ${this.autofill ? 'on' : 'off'}
+        </button>
+        <button
+          class="btn"
+          aria-pressed=${this.bonkers}
+          @click=${() => {
+            this.bonkers = !this.bonkers;
+            if (this.bonkers) boing();
+          }}
+        >
+          🤪 Bonkers ${this.bonkers ? 'on' : 'off'}
         </button>
         <button class="btn" @click=${() => this.#setValue(EMPTY)}>
           ⌫ Erase

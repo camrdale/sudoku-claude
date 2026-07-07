@@ -143,6 +143,12 @@ export class SudokuBoard extends LitElement {
     }
   `;
 
+  /** Screen position of a cell, e.g. to launch effects from it. */
+  cellRect(index: number): DOMRect | null {
+    const cell = this.renderRoot.querySelectorAll('.cell')[index];
+    return cell?.getBoundingClientRect() ?? null;
+  }
+
   #select(index: number): void {
     this.dispatchEvent(
       new CustomEvent('cell-selected', { detail: { index } })

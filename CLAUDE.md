@@ -35,7 +35,8 @@ State subtleties in `sudoku-app.ts` worth knowing before changing it:
 
 - Derived vs. stored: conflicts and (in Auto Candidates mode) displayed candidates are computed in getters on every render, not stored. Auto Candidates honors manual removals via the `removedCandidates` per-cell exclusion sets; the user's manual pencil marks (`candidates`) are a separate layer used only when auto mode is off.
 - The autofill cascade (`#runAutofill`) is an async loop guarded by `#autofillToken`; any user action, toggle-off, or new game increments the token to cancel an in-flight cascade. It re-reads the live board after every pause — don't let it capture stale state.
-- Sounds are synthesized with the Web Audio API (no asset files) except the win scream, which is a bundled mp3 (typed via `src/assets.d.ts`).
+- Sounds are synthesized with the Web Audio API (no asset files) except the Wilhelm scream, which is a bundled mp3 (typed via `src/assets.d.ts`).
+- Visual/audio juice lives in side-effect modules (`src/confetti.ts`, `src/bonkers.ts`) that manipulate the DOM directly (canvas, ejected `document.body` elements, Web Animations API) — they are fire-and-forget and hold no game state.
 
 ## Lit + TypeScript conventions
 

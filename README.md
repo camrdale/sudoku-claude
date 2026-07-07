@@ -20,6 +20,11 @@ A Sudoku web game built with [Lit](https://lit.dev) and TypeScript.
   candidate is filled automatically — including cascades, where each
   entry unlocks the next — with an animation and a rising tone per step.
   Filled digits appear in purple until you overwrite them.
+- **Bonkers mode** 🤪: erased or overwritten digits are launched off the
+  board, tumbling under cartoon gravity to a randomly pitch-shifted
+  Wilhelm scream; the board wobbles like jelly on every entry;
+  conflicting entries shake the whole page to a slow-motion scream; and
+  winning unleashes a rising scream barrage on top of the confetti
 - Light and dark theme, following your system preference
 - **Load a board from the URL**: pass `?s=<81 digits>` where each digit
   is a cell's initial value in reading order and `0` means empty
@@ -34,6 +39,7 @@ A Sudoku web game built with [Lit](https://lit.dev) and TypeScript.
 | `C` | Toggle candidates mode |
 | `A` | Toggle Auto Candidates |
 | `F` | Toggle Autofill singles |
+| `B` | Toggle Bonkers mode |
 
 ## Development
 
