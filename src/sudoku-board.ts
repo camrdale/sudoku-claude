@@ -10,14 +10,14 @@ export class SudokuBoard extends LitElement {
   static properties = {
     board: { type: Array },
     puzzle: { type: Array },
-    notes: { type: Array },
+    candidates: { type: Array },
     selected: { type: Number },
     conflicts: { type: Object },
   };
 
   declare board: Board;
   declare puzzle: Board;
-  declare notes: Set<number>[];
+  declare candidates: Set<number>[];
   declare selected: number;
   declare conflicts: Set<number>;
 
@@ -25,7 +25,7 @@ export class SudokuBoard extends LitElement {
     super();
     this.board = [];
     this.puzzle = [];
-    this.notes = [];
+    this.candidates = [];
     this.selected = -1;
     this.conflicts = new Set();
   }
@@ -91,7 +91,7 @@ export class SudokuBoard extends LitElement {
     .cell.conflict.same-value {
       background: var(--cell-error);
     }
-    .notes {
+    .candidates {
       position: absolute;
       inset: 0;
       display: grid;
@@ -133,7 +133,7 @@ export class SudokuBoard extends LitElement {
   }
 
   #renderCell(value: number, index: number): TemplateResult {
-    const notes = this.notes[index];
+    const candidates = this.candidates[index];
     return html`
       <button
         class=${classMap(this.#cellClasses(index))}
@@ -142,10 +142,10 @@ export class SudokuBoard extends LitElement {
       >
         ${value !== EMPTY
           ? value
-          : notes?.size
-            ? html`<span class="notes">
+          : candidates?.size
+            ? html`<span class="candidates">
                 ${[...Array(9).keys()].map(
-                  (i) => html`<span>${notes.has(i + 1) ? i + 1 : ''}</span>`
+                  (i) => html`<span>${candidates.has(i + 1) ? i + 1 : ''}</span>`
                 )}
               </span>`
             : ''}

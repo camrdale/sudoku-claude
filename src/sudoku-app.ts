@@ -17,9 +17,9 @@ export class SudokuApp extends LitElement {
     difficulty: { type: String },
     board: { state: true },
     puzzle: { state: true },
-    notes: { state: true },
+    candidates: { state: true },
     selected: { state: true },
-    notesMode: { state: true },
+    candidatesMode: { state: true },
     won: { state: true },
     elapsed: { state: true },
   };
@@ -27,9 +27,9 @@ export class SudokuApp extends LitElement {
   declare difficulty: Difficulty;
   declare board: Board;
   declare puzzle: Board;
-  declare notes: Set<number>[];
+  declare candidates: Set<number>[];
   declare selected: number;
-  declare notesMode: boolean;
+  declare candidatesMode: boolean;
   declare won: boolean;
   declare elapsed: number;
 
@@ -167,9 +167,9 @@ export class SudokuApp extends LitElement {
     this.puzzle = puzzle;
     this.#solution = solution;
     this.board = puzzle.slice();
-    this.notes = Array.from({ length: 81 }, () => new Set<number>());
+    this.candidates = Array.from({ length: 81 }, () => new Set<number>());
     this.selected = -1;
-    this.notesMode = false;
+    this.candidatesMode = false;
     this.won = false;
     this.elapsed = 0;
     this.#startTime = Date.now();
@@ -196,11 +196,11 @@ export class SudokuApp extends LitElement {
     const i = this.selected;
     if (i < 0 || this.puzzle[i] !== EMPTY || this.won) return;
 
-    if (this.notesMode && value !== EMPTY) {
+    if (this.candidatesMode && value !== EMPTY) {
       if (this.board[i] !== EMPTY) return;
-      const notes = new Set(this.notes[i]);
-      notes.has(value) ? notes.delete(value) : notes.add(value);
-      this.notes = this.notes.map((n, j) => (j === i ? notes : n));
+      const candidates = new Set(this.candidates[i]);
+      candidates.has(value) ? candidates.delete(value) : candidates.add(value);
+      this.candidates = this.candidates.map((n, j) => (j === i ? candidates : n));
       return;
     }
 
@@ -209,8 +209,8 @@ export class SudokuApp extends LitElement {
     this.board = board;
 
     if (board[i] !== EMPTY) {
-      // Clear the placed value from notes in the same row, column, and box.
-      this.notes = this.notes.map((n, j) => {
+      // Clear the placed value from candidates in the same row, column, and box.
+      this.candidates = this.candidates.map((n, j) => {
         if (j === i) return new Set<number>();
         if (!peersOf(i).has(j) || !n.has(value)) return n;
         const copy = new Set(n);
@@ -238,8 +238,8 @@ export class SudokuApp extends LitElement {
       if (delta === undefined) return;
       const next = this.selected + delta;
       if (next >= 0 && next < 81) this.selected = next;
-    } else if (event.key.toLowerCase() === 'n') {
-      this.notesMode = !this.notesMode;
+    } else if (event.key.toLowerCase() === 'c') {
+      this.candidatesMode = !this.candidatesMode;
     }
   };
 
@@ -284,7 +284,7 @@ export class SudokuApp extends LitElement {
       <sudoku-board
         .board=${this.board}
         .puzzle=${this.puzzle}
-        .notes=${this.notes}
+        .candidates=${this.candidates}
         .selected=${this.selected}
         .conflicts=${this.#conflicts}
         @cell-selected=${(e: CustomEvent<{ index: number }>) =>
@@ -308,10 +308,10 @@ export class SudokuApp extends LitElement {
       <div class="actions">
         <button
           class="btn"
-          aria-pressed=${this.notesMode}
-          @click=${() => (this.notesMode = !this.notesMode)}
+          aria-pressed=${this.candidatesMode}
+          @click=${() => (this.candidatesMode = !this.candidatesMode)}
         >
-          ✏️ Notes ${this.notesMode ? 'on' : 'off'}
+          ✏️ Candidates ${this.candidatesMode ? 'on' : 'off'}
         </button>
         <button class="btn" @click=${() => this.#setValue(EMPTY)}>
           ⌫ Erase
