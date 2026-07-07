@@ -158,6 +158,22 @@ test('bonkers mode ejects an overwritten digit', async ({ page }) => {
   await expect(cells(page).nth(0)).toHaveText('2');
 });
 
+test('the number pad stays within the board width on narrow screens', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 650 });
+  await page.goto(`/?s=${SINGLES}`);
+  const board = await page.locator('sudoku-board').boundingBox();
+  const pad9 = await page
+    .locator('.pad button', { hasText: '9' })
+    .boundingBox();
+  expect(board).not.toBeNull();
+  expect(pad9).not.toBeNull();
+  expect(pad9!.x + pad9!.width).toBeLessThanOrEqual(
+    board!.x + board!.width + 0.5
+  );
+});
+
 test('starting a new game clears the s parameter', async ({ page }) => {
   await page.goto(`/?s=${SINGLES}`);
   await page.getByRole('button', { name: 'New game' }).click();
