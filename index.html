@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Sudoku</title>
+    <style>
+      :root {
+        --ink: #1a1a2e;
+        --ink-given: #1a1a2e;
+        --ink-user: #2563eb;
+        --ink-note: #6b7280;
+        --ink-error: #dc2626;
+        --line: #cbd5e1;
+        --line-strong: #475569;
+        --cell-bg: #ffffff;
+        --cell-peer: #eef2f7;
+        --cell-same: #dbeafe;
+        --cell-selected: #bfdbfe;
+        --cell-error: #fecaca;
+        background: #f1f5f9;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --ink: #e5e7eb;
+          --ink-given: #e5e7eb;
+          --ink-user: #60a5fa;
+          --ink-note: #9ca3af;
+          --ink-error: #f87171;
+          --line: #374151;
+          --line-strong: #9ca3af;
+          --cell-bg: #111827;
+          --cell-peer: #1f2937;
+          --cell-same: #1e3a5f;
+          --cell-selected: #1d4ed8;
+          --cell-error: #7f1d1d;
+          background: #030712;
+        }
+      }
+      body {
+        margin: 0;
+      }
+    </style>
+    <script type="module" src="/src/sudoku-app.js"></script>
+  </head>
+  <body>
+    <sudoku-app></sudoku-app>
+  </body>
+</html>
