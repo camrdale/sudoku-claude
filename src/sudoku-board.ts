@@ -53,7 +53,8 @@ export class SudokuBoard extends LitElement {
       display: grid;
       place-items: center;
       position: relative;
-      font-size: clamp(1rem, 4.5vmin, 1.8rem);
+      font-size: clamp(1.15rem, 5vmin, 1.8rem);
+      font-weight: 700;
       border-right: 1px solid var(--line);
       border-bottom: 1px solid var(--line);
       color: var(--ink-user);
@@ -76,7 +77,7 @@ export class SudokuBoard extends LitElement {
     }
     .cell.given {
       color: var(--ink-given);
-      font-weight: 600;
+      font-weight: 800;
     }
     .cell.peer {
       background: var(--cell-peer);
@@ -137,7 +138,8 @@ export class SudokuBoard extends LitElement {
       grid-template-columns: repeat(3, 1fr);
       grid-template-rows: repeat(3, 1fr);
       place-items: center;
-      font-size: clamp(0.45rem, 1.7vmin, 0.7rem);
+      font-size: clamp(0.5rem, 1.9vmin, 0.75rem);
+      font-weight: 600;
       color: var(--ink-note);
       line-height: 1;
     }

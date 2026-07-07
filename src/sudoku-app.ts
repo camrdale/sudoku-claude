@@ -124,6 +124,7 @@ export class SudokuApp extends LitElement {
     .pad button {
       font: inherit;
       font-size: 1.3rem;
+      font-weight: 600;
       aspect-ratio: 1;
       border-radius: 8px;
       border: 1px solid var(--line);
