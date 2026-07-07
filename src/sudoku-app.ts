@@ -1,4 +1,10 @@
-import { LitElement, html, css, type TemplateResult } from 'lit';
+import {
+  LitElement,
+  html,
+  css,
+  type PropertyValues,
+  type TemplateResult,
+} from 'lit';
 import {
   EMPTY,
   DIFFICULTIES,
@@ -12,6 +18,8 @@ import {
   type Board,
   type Difficulty,
 } from './sudoku.js';
+import { launchConfetti } from './confetti.js';
+import wilhelmScreamUrl from './assets/wilhelm-scream.mp3';
 import './sudoku-board.js';
 
 /** Owns all game state and handles input; delegates rendering of the grid. */
@@ -148,19 +156,80 @@ export class SudokuApp extends LitElement {
       place-items: center;
       background: rgb(0 0 0 / 0.5);
     }
+    .overlay .confetti {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
     .overlay .card {
+      position: relative;
       background: var(--cell-bg);
-      padding: 32px 40px;
+      padding: 36px 48px;
       border-radius: 16px;
       text-align: center;
       box-shadow: 0 12px 40px rgb(0 0 0 / 0.3);
+      animation: card-pop 700ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .overlay .card::before,
+    .overlay .card::after {
+      content: '🎉';
+      font-size: 2rem;
+      display: inline-block;
+      animation: bounce 900ms ease-in-out infinite alternate;
+    }
+    .overlay .card::after {
+      content: '🎊';
+      animation-delay: 450ms;
     }
     .overlay h2 {
-      margin: 0 0 8px;
+      margin: 4px 0 8px;
+      font-size: 2.4rem;
+      background: linear-gradient(
+        90deg,
+        #f43f5e,
+        #facc15,
+        #22c55e,
+        #3b82f6,
+        #a855f7,
+        #f43f5e
+      );
+      background-size: 500% 100%;
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: transparent;
+      animation: rainbow 2.5s linear infinite;
     }
     .overlay p {
       margin: 0 0 20px;
       color: var(--ink-note);
+    }
+    @keyframes card-pop {
+      from {
+        transform: scale(0.2) rotate(-8deg);
+        opacity: 0;
+      }
+      70% {
+        transform: scale(1.1) rotate(3deg);
+      }
+      to {
+        transform: scale(1) rotate(0deg);
+        opacity: 1;
+      }
+    }
+    @keyframes rainbow {
+      to {
+        background-position: 500% 0;
+      }
+    }
+    @keyframes bounce {
+      from {
+        transform: translateY(2px);
+      }
+      to {
+        transform: translateY(-10px) scale(1.2);
+      }
     }
   `;
 
@@ -308,6 +377,24 @@ export class SudokuApp extends LitElement {
 
   #autofillToken = 0;
   #audio?: AudioContext;
+  #stopConfetti?: () => void;
+
+  protected updated(changed: PropertyValues): void {
+    if (!changed.has('won')) return;
+    this.#stopConfetti?.();
+    this.#stopConfetti = undefined;
+    if (this.won) this.#celebrate();
+  }
+
+  /** Confetti and the obligatory Wilhelm scream. */
+  #celebrate(): void {
+    const canvas =
+      this.renderRoot.querySelector<HTMLCanvasElement>('canvas.confetti');
+    if (canvas) this.#stopConfetti = launchConfetti(canvas);
+    void new Audio(wilhelmScreamUrl).play().catch(() => {
+      // Audio is best-effort; the confetti still flies.
+    });
+  }
 
   #toggleAutofill(): void {
     this.autofill = !this.autofill;
@@ -483,8 +570,9 @@ export class SudokuApp extends LitElement {
       ${this.won
         ? html`
             <div class="overlay">
+              <canvas class="confetti"></canvas>
               <div class="card">
-                <h2>🎉 Solved!</h2>
+                <h2>Solved!</h2>
                 <p>
                   ${DIFFICULTIES[this.difficulty].label} ·
                   ${this.#formatTime(this.elapsed)}
