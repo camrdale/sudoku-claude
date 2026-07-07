@@ -1,6 +1,6 @@
-import { LitElement, html, css } from 'lit';
+import { LitElement, html, css, type TemplateResult } from 'lit';
 import { classMap } from 'lit/directives/class-map.js';
-import { EMPTY, rowOf, colOf, boxOf } from './sudoku.js';
+import { EMPTY, rowOf, colOf, boxOf, type Board } from './sudoku.js';
 
 /**
  * Renders the 9x9 grid. Purely presentational: receives the game state as
@@ -14,6 +14,12 @@ export class SudokuBoard extends LitElement {
     selected: { type: Number },
     conflicts: { type: Object },
   };
+
+  declare board: Board;
+  declare puzzle: Board;
+  declare notes: Set<number>[];
+  declare selected: number;
+  declare conflicts: Set<number>;
 
   constructor() {
     super();
@@ -98,13 +104,13 @@ export class SudokuBoard extends LitElement {
     }
   `;
 
-  #select(index) {
+  #select(index: number): void {
     this.dispatchEvent(
       new CustomEvent('cell-selected', { detail: { index } })
     );
   }
 
-  #cellClasses(index) {
+  #cellClasses(index: number): Record<string, boolean> {
     const value = this.board[index];
     const selectedValue =
       this.selected >= 0 ? this.board[this.selected] : EMPTY;
@@ -126,7 +132,7 @@ export class SudokuBoard extends LitElement {
     };
   }
 
-  #renderCell(value, index) {
+  #renderCell(value: number, index: number): TemplateResult {
     const notes = this.notes[index];
     return html`
       <button
@@ -147,7 +153,7 @@ export class SudokuBoard extends LitElement {
     `;
   }
 
-  render() {
+  render(): TemplateResult {
     return html`
       <div class="grid" role="grid" aria-label="Sudoku board">
         ${this.board.map((value, index) => this.#renderCell(value, index))}
@@ -157,3 +163,9 @@ export class SudokuBoard extends LitElement {
 }
 
 customElements.define('sudoku-board', SudokuBoard);
+
+declare global {
+  interface HTMLElementTagNameMap {
+    'sudoku-board': SudokuBoard;
+  }
+}

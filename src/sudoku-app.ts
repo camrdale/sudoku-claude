@@ -1,4 +1,4 @@
-import { LitElement, html, css } from 'lit';
+import { LitElement, html, css, type TemplateResult } from 'lit';
 import {
   EMPTY,
   DIFFICULTIES,
@@ -6,6 +6,8 @@ import {
   findConflicts,
   isComplete,
   peersOf,
+  type Board,
+  type Difficulty,
 } from './sudoku.js';
 import './sudoku-board.js';
 
@@ -21,6 +23,15 @@ export class SudokuApp extends LitElement {
     won: { state: true },
     elapsed: { state: true },
   };
+
+  declare difficulty: Difficulty;
+  declare board: Board;
+  declare puzzle: Board;
+  declare notes: Set<number>[];
+  declare selected: number;
+  declare notesMode: boolean;
+  declare won: boolean;
+  declare elapsed: number;
 
   constructor() {
     super();
@@ -133,7 +144,7 @@ export class SudokuApp extends LitElement {
     }
   `;
 
-  connectedCallback() {
+  connectedCallback(): void {
     super.connectedCallback();
     window.addEventListener('keydown', this.#onKeyDown);
     this.#timer = setInterval(() => {
@@ -141,22 +152,22 @@ export class SudokuApp extends LitElement {
     }, 1000);
   }
 
-  disconnectedCallback() {
+  disconnectedCallback(): void {
     super.disconnectedCallback();
     window.removeEventListener('keydown', this.#onKeyDown);
     clearInterval(this.#timer);
   }
 
-  #timer;
-  #startTime;
-  #solution;
+  #timer?: ReturnType<typeof setInterval>;
+  #startTime = 0;
+  #solution: Board = [];
 
-  #newGame() {
+  #newGame(): void {
     const { puzzle, solution } = generatePuzzle(this.difficulty);
     this.puzzle = puzzle;
     this.#solution = solution;
     this.board = puzzle.slice();
-    this.notes = Array.from({ length: 81 }, () => new Set());
+    this.notes = Array.from({ length: 81 }, () => new Set<number>());
     this.selected = -1;
     this.notesMode = false;
     this.won = false;
@@ -164,13 +175,13 @@ export class SudokuApp extends LitElement {
     this.#startTime = Date.now();
   }
 
-  get #conflicts() {
+  get #conflicts(): Set<number> {
     return findConflicts(this.board);
   }
 
   /** Values that already appear 9 times without conflicts. */
-  get #exhausted() {
-    const counts = new Map();
+  get #exhausted(): Set<number> {
+    const counts = new Map<number, number>();
     const conflicts = this.#conflicts;
     for (let i = 0; i < 81; i++) {
       const v = this.board[i];
@@ -181,7 +192,7 @@ export class SudokuApp extends LitElement {
     return new Set([...counts].filter(([, n]) => n >= 9).map(([v]) => v));
   }
 
-  #setValue(value) {
+  #setValue(value: number): void {
     const i = this.selected;
     if (i < 0 || this.puzzle[i] !== EMPTY || this.won) return;
 
@@ -200,7 +211,7 @@ export class SudokuApp extends LitElement {
     if (board[i] !== EMPTY) {
       // Clear the placed value from notes in the same row, column, and box.
       this.notes = this.notes.map((n, j) => {
-        if (j === i) return new Set();
+        if (j === i) return new Set<number>();
         if (!peersOf(i).has(j) || !n.has(value)) return n;
         const copy = new Set(n);
         copy.delete(value);
@@ -211,7 +222,7 @@ export class SudokuApp extends LitElement {
     if (isComplete(board)) this.won = true;
   }
 
-  #onKeyDown = (event) => {
+  #onKeyDown = (event: KeyboardEvent): void => {
     if (event.key >= '1' && event.key <= '9') {
       this.#setValue(Number(event.key));
     } else if (['Backspace', 'Delete', '0'].includes(event.key)) {
@@ -224,6 +235,7 @@ export class SudokuApp extends LitElement {
         ArrowLeft: -1,
         ArrowRight: 1,
       }[event.key];
+      if (delta === undefined) return;
       const next = this.selected + delta;
       if (next >= 0 && next < 81) this.selected = next;
     } else if (event.key.toLowerCase() === 'n') {
@@ -231,13 +243,13 @@ export class SudokuApp extends LitElement {
     }
   };
 
-  #formatTime(seconds) {
+  #formatTime(seconds: number): string {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
     return `${m}:${String(s).padStart(2, '0')}`;
   }
 
-  render() {
+  render(): TemplateResult {
     const filled = this.board.filter((v) => v !== EMPTY).length;
     const exhausted = this.#exhausted;
     return html`
@@ -247,8 +259,9 @@ export class SudokuApp extends LitElement {
           <select
             aria-label="Difficulty"
             .value=${this.difficulty}
-            @change=${(e) => {
-              this.difficulty = e.target.value;
+            @change=${(e: Event) => {
+              this.difficulty = (e.target as HTMLSelectElement)
+                .value as Difficulty;
               this.#newGame();
             }}
           >
@@ -274,7 +287,8 @@ export class SudokuApp extends LitElement {
         .notes=${this.notes}
         .selected=${this.selected}
         .conflicts=${this.#conflicts}
-        @cell-selected=${(e) => (this.selected = e.detail.index)}
+        @cell-selected=${(e: CustomEvent<{ index: number }>) =>
+          (this.selected = e.detail.index)}
       ></sudoku-board>
 
       <div class="pad">
@@ -325,3 +339,9 @@ export class SudokuApp extends LitElement {
 }
 
 customElements.define('sudoku-app', SudokuApp);
+
+declare global {
+  interface HTMLElementTagNameMap {
+    'sudoku-app': SudokuApp;
+  }
+}

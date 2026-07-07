@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   EMPTY,
   DIFFICULTIES,
+  type Difficulty,
   generateSolution,
   generatePuzzle,
   findConflicts,
@@ -19,7 +20,10 @@ test('generateSolution produces a complete valid board', () => {
 });
 
 test('generatePuzzle leaves roughly the requested number of clues', () => {
-  for (const [difficulty, { clues }] of Object.entries(DIFFICULTIES)) {
+  for (const [difficulty, { clues }] of Object.entries(DIFFICULTIES) as [
+    Difficulty,
+    { label: string; clues: number },
+  ][]) {
     const { puzzle } = generatePuzzle(difficulty);
     const givens = puzzle.filter((v) => v !== EMPTY).length;
     assert.ok(
