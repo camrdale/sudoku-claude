@@ -47,8 +47,11 @@ Requires Node.js 20+.
 
 ```sh
 npm install
+npx playwright install chromium   # one-time: browser for the e2e tests
+
 npm run dev        # start the Vite dev server
 npm test           # run unit tests (node test runner via tsx)
+npm run test:e2e   # run browser tests (Playwright)
 npm run typecheck  # tsc --noEmit
 npm run build      # typecheck + production build to dist/
 npm run preview    # serve the production build
@@ -58,7 +61,8 @@ npm run preview    # serve the production build
 
 - `src/sudoku.ts` — pure game logic: board representation, a
   backtracking solver/generator, candidate computation, and conflict
-  detection. No DOM dependencies; unit tested in `test/`.
+  detection. No DOM dependencies; unit tested in `test/`. The UI is
+  covered by Playwright browser tests in `e2e/`.
 - `src/sudoku-board.ts` — `<sudoku-board>`, a presentational Lit
   component that renders the grid from properties and emits
   `cell-selected` events.

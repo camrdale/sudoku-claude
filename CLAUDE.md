@@ -11,6 +11,7 @@ A Sudoku web game built with Lit 3 + TypeScript + Vite, deployed to GitHub Pages
 ```sh
 npm run dev        # Vite dev server (http://localhost:5173/)
 npm test           # unit tests (node test runner via tsx)
+npm run test:e2e   # Playwright browser tests (e2e/), needs `npx playwright install chromium` once
 npm run typecheck  # tsc --noEmit
 npm run build      # typecheck + production build to dist/
 ```
@@ -19,6 +20,7 @@ Run a single test by name pattern:
 
 ```sh
 node --import tsx --test --test-name-pattern="parseBoard" test/sudoku.test.ts
+npx playwright test -g "autofill"   # e2e equivalent
 ```
 
 Pushing to `main` triggers `.github/workflows/deploy.yml`, which runs tests, builds, and deploys to GitHub Pages — a failing test blocks the deploy. Production builds use `/sudoku-claude/` as the Vite base path (see `vite.config.ts`); the dev server stays at `/`.
@@ -27,7 +29,7 @@ Pushing to `main` triggers `.github/workflows/deploy.yml`, which runs tests, bui
 
 Three layers, strictly separated:
 
-- **`src/sudoku.ts`** — pure game logic with no DOM or Lit dependencies; this is the only unit-tested layer (`test/sudoku.test.ts`). A board is a flat `number[]` of 81 cells in reading order, `0` (`EMPTY`) meaning empty. Contains the backtracking solver/generator (`generatePuzzle` guarantees a unique solution by removing clues only while `countSolutions` stays 1), `candidatesFor`, `findSingleCandidate`, `findConflicts`, and `parseBoard` (the `?s=<81 digits>` URL format).
+- **`src/sudoku.ts`** — pure game logic with no DOM or Lit dependencies; this is the only unit-tested layer (`test/sudoku.test.ts`). The UI layers are covered by Playwright tests (`e2e/sudoku.spec.ts`) driven through fixed `?s=` boards — notably a naked-singles board whose facts (cell 0 → 1, cell 2 given, digit 5 exhausted, 12 empties) several tests rely on. A board is a flat `number[]` of 81 cells in reading order, `0` (`EMPTY`) meaning empty. Contains the backtracking solver/generator (`generatePuzzle` guarantees a unique solution by removing clues only while `countSolutions` stays 1), `candidatesFor`, `findSingleCandidate`, `findConflicts`, and `parseBoard` (the `?s=<81 digits>` URL format).
 - **`src/sudoku-app.ts`** — `<sudoku-app>` owns *all* game state and input handling (keyboard shortcuts: 1-9, arrows, Backspace, C/A/F). Win celebration (confetti + bundled Wilhelm scream mp3) fires on the `won` transition in `updated()`.
 - **`src/sudoku-board.ts`** — `<sudoku-board>` is purely presentational: state in via properties, `cell-selected` events out. Keep it free of game rules.
 
