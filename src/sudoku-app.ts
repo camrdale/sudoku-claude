@@ -5,6 +5,7 @@ import {
   candidatesFor,
   generatePuzzle,
   findConflicts,
+  findSingleCandidate,
   isComplete,
   parseBoard,
   peersOf,
@@ -24,6 +25,8 @@ export class SudokuApp extends LitElement {
     selected: { state: true },
     candidatesMode: { state: true },
     autoCandidates: { state: true },
+    autofill: { state: true },
+    autofilled: { state: true },
     won: { state: true },
     elapsed: { state: true },
   };
@@ -36,6 +39,8 @@ export class SudokuApp extends LitElement {
   declare selected: number;
   declare candidatesMode: boolean;
   declare autoCandidates: boolean;
+  declare autofill: boolean;
+  declare autofilled: Set<number>;
   declare won: boolean;
   declare elapsed: number;
 
@@ -43,6 +48,7 @@ export class SudokuApp extends LitElement {
     super();
     this.difficulty = 'medium';
     this.autoCandidates = false;
+    this.autofill = false;
     const shared = new URLSearchParams(window.location.search).get('s');
     this.#newGame((shared && parseBoard(shared)) || undefined);
   }
@@ -122,12 +128,14 @@ export class SudokuApp extends LitElement {
     }
     .actions {
       display: flex;
+      flex-wrap: wrap;
       gap: 8px;
       margin-top: 10px;
     }
     .actions .btn {
       flex: 1;
       text-align: center;
+      white-space: nowrap;
     }
     .btn[aria-pressed='true'] {
       background: var(--cell-selected);
@@ -175,12 +183,14 @@ export class SudokuApp extends LitElement {
 
   /** Start a game from the given puzzle, or a freshly generated one. */
   #newGame(puzzle?: Board): void {
+    this.#autofillToken++;
     if (!puzzle) {
       puzzle = generatePuzzle(this.difficulty).puzzle;
       this.#clearSharedBoardParam();
     }
     this.puzzle = puzzle;
     this.board = puzzle.slice();
+    this.autofilled = new Set();
     this.candidates = Array.from({ length: 81 }, () => new Set<number>());
     this.removedCandidates = Array.from({ length: 81 }, () => new Set<number>());
     this.selected = -1;
@@ -188,6 +198,7 @@ export class SudokuApp extends LitElement {
     this.won = false;
     this.elapsed = 0;
     this.#startTime = Date.now();
+    if (this.autofill) this.#runAutofill();
   }
 
   /** Drop the `s` parameter so a reload doesn't bring the old board back. */
@@ -259,14 +270,29 @@ export class SudokuApp extends LitElement {
           j === i ? candidates : n
         );
       }
+      // Removing a mark can leave a cell with a single candidate.
+      this.#runAutofill();
       return;
     }
 
     const board = this.board.slice();
     board[i] = board[i] === value ? EMPTY : value;
+    this.#place(i, board);
+    if (this.autofilled.has(i)) {
+      // The user took over this cell; it is no longer an automatic entry.
+      const autofilled = new Set(this.autofilled);
+      autofilled.delete(i);
+      this.autofilled = autofilled;
+    }
+    this.#runAutofill();
+  }
+
+  /** Commit an updated board where cell `i` changed, with bookkeeping. */
+  #place(i: number, board: Board): void {
+    const value = board[i];
     this.board = board;
 
-    if (board[i] !== EMPTY) {
+    if (value !== EMPTY) {
       // Clear the placed value from candidates in the same row, column, and box.
       this.candidates = this.candidates.map((n, j) => {
         if (j === i) return new Set<number>();
@@ -278,6 +304,65 @@ export class SudokuApp extends LitElement {
     }
 
     if (isComplete(board)) this.won = true;
+  }
+
+  #autofillToken = 0;
+  #audio?: AudioContext;
+
+  #toggleAutofill(): void {
+    this.autofill = !this.autofill;
+    if (this.autofill) this.#runAutofill();
+    else this.#autofillToken++; // cancel a cascade in flight
+  }
+
+  /**
+   * While enabled, repeatedly fill the first cell that has exactly one
+   * possible candidate, pausing between entries so each one can be seen
+   * and heard. Any user action supersedes a running cascade (the token
+   * changes), and the loop re-checks the live board after every pause.
+   */
+  async #runAutofill(): Promise<void> {
+    if (!this.autofill) return;
+    const token = ++this.#autofillToken;
+    const removed = () =>
+      this.autoCandidates ? this.removedCandidates : undefined;
+    for (let step = 0; !this.won; step++) {
+      if (!findSingleCandidate(this.board, removed())) return;
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      if (token !== this.#autofillToken || !this.autofill || this.won) return;
+      const single = findSingleCandidate(this.board, removed());
+      if (!single) return;
+      const board = this.board.slice();
+      board[single.index] = single.value;
+      this.autofilled = new Set(this.autofilled).add(single.index);
+      this.#place(single.index, board);
+      this.#playTone(step);
+    }
+  }
+
+  /** A short marimba-like tone, rising with each step of a cascade. */
+  #playTone(step: number): void {
+    try {
+      this.#audio ??= new AudioContext();
+      if (this.#audio.state === 'suspended') void this.#audio.resume();
+      // Steps climb a C-major pentatonic scale, two octaves up from C5.
+      const pentatonic = [0, 2, 4, 7, 9];
+      const octave = Math.floor(step / pentatonic.length) % 3;
+      const semitones = pentatonic[step % pentatonic.length] + 12 * octave;
+      const start = this.#audio.currentTime;
+      const oscillator = this.#audio.createOscillator();
+      oscillator.type = 'triangle';
+      oscillator.frequency.value = 523.25 * 2 ** (semitones / 12);
+      const gain = this.#audio.createGain();
+      gain.gain.setValueAtTime(0.001, start);
+      gain.gain.exponentialRampToValueAtTime(0.18, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.4);
+      oscillator.connect(gain).connect(this.#audio.destination);
+      oscillator.start(start);
+      oscillator.stop(start + 0.45);
+    } catch {
+      // Audio is best-effort: keep filling even if the context is unavailable.
+    }
   }
 
   #onKeyDown = (event: KeyboardEvent): void => {
@@ -300,6 +385,8 @@ export class SudokuApp extends LitElement {
       this.candidatesMode = !this.candidatesMode;
     } else if (event.key.toLowerCase() === 'a') {
       this.#toggleAutoCandidates();
+    } else if (event.key.toLowerCase() === 'f') {
+      this.#toggleAutofill();
     }
   };
 
@@ -345,6 +432,7 @@ export class SudokuApp extends LitElement {
         .board=${this.board}
         .puzzle=${this.puzzle}
         .candidates=${this.#displayedCandidates}
+        .autofilled=${this.autofilled}
         .selected=${this.selected}
         .conflicts=${this.#conflicts}
         @cell-selected=${(e: CustomEvent<{ index: number }>) =>
@@ -379,6 +467,13 @@ export class SudokuApp extends LitElement {
           @click=${() => this.#toggleAutoCandidates()}
         >
           ⚡ Auto ${this.autoCandidates ? 'on' : 'off'}
+        </button>
+        <button
+          class="btn"
+          aria-pressed=${this.autofill}
+          @click=${() => this.#toggleAutofill()}
+        >
+          ✨ Fill ${this.autofill ? 'on' : 'off'}
         </button>
         <button class="btn" @click=${() => this.#setValue(EMPTY)}>
           ⌫ Erase

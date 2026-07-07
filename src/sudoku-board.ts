@@ -11,6 +11,7 @@ export class SudokuBoard extends LitElement {
     board: { type: Array },
     puzzle: { type: Array },
     candidates: { type: Array },
+    autofilled: { type: Object },
     selected: { type: Number },
     conflicts: { type: Object },
   };
@@ -18,6 +19,7 @@ export class SudokuBoard extends LitElement {
   declare board: Board;
   declare puzzle: Board;
   declare candidates: Set<number>[];
+  declare autofilled: Set<number>;
   declare selected: number;
   declare conflicts: Set<number>;
 
@@ -26,6 +28,7 @@ export class SudokuBoard extends LitElement {
     this.board = [];
     this.puzzle = [];
     this.candidates = [];
+    this.autofilled = new Set();
     this.selected = -1;
     this.conflicts = new Set();
   }
@@ -84,6 +87,42 @@ export class SudokuBoard extends LitElement {
     .cell.selected {
       background: var(--cell-selected);
     }
+    .cell.autofilled {
+      color: var(--ink-auto);
+    }
+    .cell.autofilled .value {
+      animation: pop 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .cell.autofilled::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--cell-same);
+      opacity: 0;
+      pointer-events: none;
+      animation: flash 700ms ease-out;
+    }
+    @keyframes pop {
+      from {
+        transform: scale(0.2);
+        opacity: 0;
+      }
+      60% {
+        transform: scale(1.25);
+      }
+      to {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+    @keyframes flash {
+      from {
+        opacity: 1;
+      }
+      to {
+        opacity: 0;
+      }
+    }
     .cell.conflict {
       color: var(--ink-error);
     }
@@ -127,6 +166,7 @@ export class SudokuBoard extends LitElement {
           boxOf(index) === boxOf(this.selected)),
       'same-value':
         value !== EMPTY && value === selectedValue && index !== this.selected,
+      autofilled: value !== EMPTY && this.autofilled.has(index),
       'box-right': colOf(index) % 3 === 2 && colOf(index) !== 8,
       'box-bottom': rowOf(index) % 3 === 2 && rowOf(index) !== 8,
     };
@@ -141,7 +181,7 @@ export class SudokuBoard extends LitElement {
         @click=${() => this.#select(index)}
       >
         ${value !== EMPTY
-          ? value
+          ? html`<span class="value">${value}</span>`
           : candidates?.size
             ? html`<span class="candidates">
                 ${[...Array(9).keys()].map(

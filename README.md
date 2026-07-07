@@ -16,6 +16,10 @@ A Sudoku web game built with [Lit](https://lit.dev) and TypeScript.
   numbers, while marks you remove by hand stay removed
 - **Number pad** with completed digits greyed out, elapsed timer,
   fill counter, and a win overlay
+- **Autofill singles**: when enabled, any cell with exactly one possible
+  candidate is filled automatically — including cascades, where each
+  entry unlocks the next — with an animation and a rising tone per step.
+  Filled digits appear in purple until you overwrite them.
 - Light and dark theme, following your system preference
 - **Load a board from the URL**: pass `?s=<81 digits>` where each digit
   is a cell's initial value in reading order and `0` means empty
@@ -29,6 +33,7 @@ A Sudoku web game built with [Lit](https://lit.dev) and TypeScript.
 | Arrow keys | Move the selection |
 | `C` | Toggle candidates mode |
 | `A` | Toggle Auto Candidates |
+| `F` | Toggle Autofill singles |
 
 ## Development
 

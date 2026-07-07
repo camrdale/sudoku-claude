@@ -159,6 +159,24 @@ export function generatePuzzle(difficulty: Difficulty = 'medium'): {
 }
 
 /**
+ * Find the first empty cell that has exactly one possible candidate.
+ * Candidates in `removed` (per-cell exclusions) are not considered.
+ * Returns null when no such cell exists.
+ */
+export function findSingleCandidate(
+  board: Board,
+  removed?: readonly ReadonlySet<number>[]
+): { index: number; value: number } | null {
+  for (let i = 0; i < board.length; i++) {
+    if (board[i] !== EMPTY) continue;
+    let candidates = candidatesFor(board, i);
+    if (removed) candidates = candidates.filter((v) => !removed[i].has(v));
+    if (candidates.length === 1) return { index: i, value: candidates[0] };
+  }
+  return null;
+}
+
+/**
  * Parse a board from a string of 81 digits (0 = empty cell), as used in
  * the `s` URL query parameter. Returns null if the string is malformed.
  */

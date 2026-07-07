@@ -4,6 +4,7 @@ import {
   EMPTY,
   DIFFICULTIES,
   candidatesFor,
+  findSingleCandidate,
   parseBoard,
   type Difficulty,
   generateSolution,
@@ -80,6 +81,31 @@ test('candidatesFor excludes values used by peers', () => {
   board[9] = 3; // same column and box
   board[10] = 7; // same box
   assert.deepEqual(candidatesFor(board, 0), [1, 2, 4, 6, 8, 9]);
+});
+
+test('findSingleCandidate finds a cell whose peers use eight values', () => {
+  const board = new Array(81).fill(EMPTY);
+  assert.equal(findSingleCandidate(board), null);
+
+  // Cell 0 sees 1..5 in its row and 6,7,8 in its column: only 9 remains.
+  [1, 2, 3, 4, 5].forEach((v, i) => (board[i + 1] = v));
+  [6, 7, 8].forEach((v, i) => (board[(i + 1) * 9] = v));
+  assert.deepEqual(findSingleCandidate(board), { index: 0, value: 9 });
+});
+
+test('findSingleCandidate honors removed candidates', () => {
+  const board = new Array(81).fill(EMPTY);
+  // Cell 0 sees 1..5 in its row and 6,7 in its column: 8 and 9 remain.
+  [1, 2, 3, 4, 5].forEach((v, i) => (board[i + 1] = v));
+  [6, 7].forEach((v, i) => (board[(i + 1) * 9] = v));
+  assert.equal(findSingleCandidate(board), null);
+
+  const removed = Array.from({ length: 81 }, () => new Set<number>());
+  removed[0].add(8);
+  assert.deepEqual(findSingleCandidate(board, removed), {
+    index: 0,
+    value: 9,
+  });
 });
 
 test('parseBoard round-trips a puzzle string', () => {
