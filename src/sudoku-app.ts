@@ -19,6 +19,7 @@ export class SudokuApp extends LitElement {
     board: { state: true },
     puzzle: { state: true },
     candidates: { state: true },
+    removedCandidates: { state: true },
     selected: { state: true },
     candidatesMode: { state: true },
     autoCandidates: { state: true },
@@ -30,6 +31,7 @@ export class SudokuApp extends LitElement {
   declare board: Board;
   declare puzzle: Board;
   declare candidates: Set<number>[];
+  declare removedCandidates: Set<number>[];
   declare selected: number;
   declare candidatesMode: boolean;
   declare autoCandidates: boolean;
@@ -176,12 +178,12 @@ export class SudokuApp extends LitElement {
     this.#solution = solution;
     this.board = puzzle.slice();
     this.candidates = Array.from({ length: 81 }, () => new Set<number>());
+    this.removedCandidates = Array.from({ length: 81 }, () => new Set<number>());
     this.selected = -1;
     this.candidatesMode = false;
     this.won = false;
     this.elapsed = 0;
     this.#startTime = Date.now();
-    if (this.autoCandidates) this.#fillAutoCandidates();
   }
 
   get #conflicts(): Set<number> {
@@ -189,19 +191,26 @@ export class SudokuApp extends LitElement {
   }
 
   /**
-   * Fill every empty cell's candidates from the board. The result is
-   * ordinary user-editable state: the user can remove individual marks,
-   * and placing a number prunes it from peers as usual.
+   * Candidates shown on the board. In auto mode they are derived from the
+   * current board state — so they follow every entry and erase — minus the
+   * marks the user has removed by hand. Otherwise they are the manual sets.
    */
-  #fillAutoCandidates(): void {
-    this.candidates = this.board.map((value, i) =>
-      value === EMPTY ? new Set(candidatesFor(this.board, i)) : new Set<number>()
-    );
+  get #displayedCandidates(): Set<number>[] {
+    if (!this.autoCandidates) return this.candidates;
+    return this.board.map((value, i) => {
+      if (value !== EMPTY) return new Set<number>();
+      const auto = new Set(candidatesFor(this.board, i));
+      for (const value of this.removedCandidates[i]) auto.delete(value);
+      return auto;
+    });
   }
 
   #toggleAutoCandidates(): void {
     this.autoCandidates = !this.autoCandidates;
-    if (this.autoCandidates) this.#fillAutoCandidates();
+    // Turning auto on starts fresh: forget earlier manual removals.
+    if (this.autoCandidates) {
+      this.removedCandidates = Array.from({ length: 81 }, () => new Set<number>());
+    }
   }
 
   /** Values that already appear 9 times without conflicts. */
@@ -223,9 +232,20 @@ export class SudokuApp extends LitElement {
 
     if (this.candidatesMode && value !== EMPTY) {
       if (this.board[i] !== EMPTY) return;
-      const candidates = new Set(this.candidates[i]);
-      candidates.has(value) ? candidates.delete(value) : candidates.add(value);
-      this.candidates = this.candidates.map((n, j) => (j === i ? candidates : n));
+      if (this.autoCandidates) {
+        // Toggle the mark's exclusion; the rest stays derived from the board.
+        const removed = new Set(this.removedCandidates[i]);
+        removed.has(value) ? removed.delete(value) : removed.add(value);
+        this.removedCandidates = this.removedCandidates.map((n, j) =>
+          j === i ? removed : n
+        );
+      } else {
+        const candidates = new Set(this.candidates[i]);
+        candidates.has(value) ? candidates.delete(value) : candidates.add(value);
+        this.candidates = this.candidates.map((n, j) =>
+          j === i ? candidates : n
+        );
+      }
       return;
     }
 
@@ -311,7 +331,7 @@ export class SudokuApp extends LitElement {
       <sudoku-board
         .board=${this.board}
         .puzzle=${this.puzzle}
-        .candidates=${this.candidates}
+        .candidates=${this.#displayedCandidates}
         .selected=${this.selected}
         .conflicts=${this.#conflicts}
         @cell-selected=${(e: CustomEvent<{ index: number }>) =>
