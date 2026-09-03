@@ -6,6 +6,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A Sudoku web game built with Lit 3 + TypeScript + Vite, deployed to GitHub Pages at https://camrdale.github.io/sudoku-claude/.
 
+## Starting new work
+
+Raise doubts and open questions *before* implementing a new feature or change, not in the report afterwards. Ask when the request leaves a decision that would be annoying to reverse once it ships:
+
+- **Scope the request implies but does not name** — "saved in the browser session" could mean `sessionStorage` or `localStorage`, and the difference decides whether a returning player keeps their game.
+- **Behavior at the edges** — e.g. whether Undo should restart a cancelled autofill cascade, or reach back past a reload.
+- **Anything touching a stored format, a URL parameter, or the deployed site**, which players are holding on to and which is costly to change later.
+
+Give a recommended default with each question so a one-word answer unblocks the work. Once answered, implement the whole thing.
+
 ## Commands
 
 ```sh
