@@ -185,6 +185,11 @@ export function parseBoard(text: string): Board | null {
   return [...text].map(Number);
 }
 
+/** Render a board as the 81-digit string used by the `s` query parameter. */
+export function formatBoard(board: Board): string {
+  return board.join('');
+}
+
 /** Indices of filled cells that conflict with a peer. */
 export function findConflicts(board: Board): Set<number> {
   const conflicts = new Set<number>();

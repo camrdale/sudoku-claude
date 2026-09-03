@@ -13,15 +13,28 @@ import {
   findConflicts,
   findSingleCandidate,
   isComplete,
+  formatBoard,
   parseBoard,
   peersOf,
   type Board,
   type Difficulty,
 } from './sudoku.js';
+import { loadProgress, saveProgress } from './progress.js';
 import { launchConfetti } from './confetti.js';
 import { boing, ejectDigit, jelly, scream, shake } from './bonkers.js';
 import wilhelmScreamUrl from './assets/wilhelm-scream.mp3';
 import './sudoku-board.js';
+
+/** State that makes up a player's progress, saved whenever it changes. */
+const SAVED_PROPERTIES = [
+  'board',
+  'candidates',
+  'removedCandidates',
+  'autofilled',
+  'elapsed',
+  'won',
+  'difficulty',
+] as const;
 
 /** Owns all game state and handles input; delegates rendering of the grid. */
 export class SudokuApp extends LitElement {
@@ -39,6 +52,7 @@ export class SudokuApp extends LitElement {
     bonkers: { state: true },
     won: { state: true },
     elapsed: { state: true },
+    resumed: { state: true },
   };
 
   declare difficulty: Difficulty;
@@ -54,6 +68,7 @@ export class SudokuApp extends LitElement {
   declare bonkers: boolean;
   declare won: boolean;
   declare elapsed: number;
+  declare resumed: boolean;
 
   constructor() {
     super();
@@ -63,6 +78,8 @@ export class SudokuApp extends LitElement {
     this.bonkers = false;
     const shared = new URLSearchParams(window.location.search).get('s');
     this.#newGame((shared && parseBoard(shared)) || undefined);
+    // A game reached by URL may already have progress saved against it.
+    this.#restore();
   }
 
   static styles = css`
@@ -114,6 +131,11 @@ export class SudokuApp extends LitElement {
       margin: 10px 2px;
       font-variant-numeric: tabular-nums;
       color: var(--ink-note);
+    }
+    .status .resumed {
+      font-size: 0.85em;
+      font-style: normal;
+      opacity: 0.75;
     }
     .pad {
       display: grid;
@@ -260,10 +282,8 @@ export class SudokuApp extends LitElement {
   /** Start a game from the given puzzle, or a freshly generated one. */
   #newGame(puzzle?: Board): void {
     this.#autofillToken++;
-    if (!puzzle) {
-      puzzle = generatePuzzle(this.difficulty).puzzle;
-      this.#clearSharedBoardParam();
-    }
+    puzzle ??= generatePuzzle(this.difficulty).puzzle;
+    this.#setSharedBoardParam(puzzle);
     this.puzzle = puzzle;
     this.board = puzzle.slice();
     this.autofilled = new Set();
@@ -272,18 +292,50 @@ export class SudokuApp extends LitElement {
     this.selected = -1;
     this.candidatesMode = false;
     this.won = false;
+    this.resumed = false;
     this.elapsed = 0;
     this.#startTime = Date.now();
     if (this.autofill) this.#runAutofill();
   }
 
-  /** Drop the `s` parameter so a reload doesn't bring the old board back. */
-  #clearSharedBoardParam(): void {
+  /**
+   * Put the puzzle in the `s` parameter. Every game is identified by its URL,
+   * which is what saved progress is keyed by — and what makes it shareable.
+   */
+  #setSharedBoardParam(puzzle: Board): void {
+    const text = formatBoard(puzzle);
     const params = new URLSearchParams(window.location.search);
-    if (!params.has('s')) return;
-    params.delete('s');
-    const query = params.size ? `?${params}` : '';
-    history.replaceState(null, '', window.location.pathname + query + window.location.hash);
+    if (params.get('s') === text) return;
+    params.set('s', text);
+    history.replaceState(null, '', `${window.location.pathname}?${params}${window.location.hash}`);
+  }
+
+  /** Reload progress saved earlier in this session for the current puzzle. */
+  #restore(): void {
+    const saved = loadProgress(this.puzzle);
+    if (!saved) return;
+    this.board = saved.board;
+    this.candidates = saved.candidates;
+    this.removedCandidates = saved.removedCandidates;
+    this.autofilled = saved.autofilled;
+    this.difficulty = saved.difficulty;
+    this.elapsed = saved.elapsed;
+    this.won = saved.won;
+    this.resumed = true;
+    this.#startTime = Date.now() - saved.elapsed * 1000;
+    if (this.autofill) this.#runAutofill();
+  }
+
+  #saveProgress(): void {
+    saveProgress(this.puzzle, {
+      board: this.board,
+      candidates: this.candidates,
+      removedCandidates: this.removedCandidates,
+      autofilled: this.autofilled,
+      elapsed: this.elapsed,
+      difficulty: this.difficulty,
+      won: this.won,
+    });
   }
 
   get #conflicts(): Set<number> {
@@ -410,6 +462,9 @@ export class SudokuApp extends LitElement {
   #stopConfetti?: () => void;
 
   protected updated(changed: PropertyValues): void {
+    if (SAVED_PROPERTIES.some((property) => changed.has(property))) {
+      this.#saveProgress();
+    }
     if (!changed.has('won')) return;
     this.#stopConfetti?.();
     this.#stopConfetti = undefined;
@@ -554,7 +609,10 @@ export class SudokuApp extends LitElement {
       </header>
 
       <div class="status">
-        <span>${this.#formatTime(this.elapsed)}</span>
+        <span>
+          ${this.#formatTime(this.elapsed)}
+          ${this.resumed ? html`<em class="resumed">resumed</em>` : ''}
+        </span>
         <span>${filled} / 81</span>
       </div>
 

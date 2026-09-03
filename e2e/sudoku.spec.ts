@@ -18,6 +18,14 @@ function fillCount(page: Page): Locator {
   return page.locator('.status span').nth(1);
 }
 
+function clock(page: Page): Locator {
+  return page.locator('.status span').nth(0);
+}
+
+function resumedBadge(page: Page): Locator {
+  return page.locator('.status .resumed');
+}
+
 function toggle(page: Page, label: string): Locator {
   return page.locator('.actions .btn', { hasText: label });
 }
@@ -36,8 +44,8 @@ test('a malformed s parameter falls back to a generated puzzle', async ({
 }) => {
   await page.goto('/?s=123');
   await expect(cells(page)).toHaveCount(81);
-  // The bad parameter is dropped from the URL.
-  await expect(page).toHaveURL('/');
+  // The bad parameter is replaced by the puzzle actually being played.
+  await expect(page).toHaveURL(/\?s=\d{81}$/);
 });
 
 test('enters and erases numbers with the keyboard', async ({ page }) => {
@@ -174,9 +182,72 @@ test('the number pad stays within the board width on narrow screens', async ({
   );
 });
 
-test('starting a new game clears the s parameter', async ({ page }) => {
+test('starting a new game puts the new puzzle in the s parameter', async ({
+  page,
+}) => {
   await page.goto(`/?s=${SINGLES}`);
   await page.getByRole('button', { name: 'New game' }).click();
-  await expect(page).toHaveURL('/');
+  await expect(page).toHaveURL(/\?s=\d{81}$/);
+  await expect(page).not.toHaveURL(`/?s=${SINGLES}`);
   await expect(cells(page)).toHaveCount(81);
+  // A fresh puzzle starts clean, not resumed.
+  await expect(resumedBadge(page)).toHaveCount(0);
+});
+
+test('progress on a puzzle survives a reload', async ({ page }) => {
+  await page.goto(`/?s=${SINGLES}`);
+  await cells(page).nth(0).click();
+  await page.keyboard.press('1');
+  // A pencil mark on another cell, to check both layers come back.
+  await cells(page).nth(1).click();
+  await page.keyboard.press('c');
+  await page.keyboard.press('4');
+  await expect(clock(page)).toHaveText(/0:0[2-9]/);
+
+  await page.reload();
+  await expect(resumedBadge(page)).toHaveText('resumed');
+  await expect(cells(page).nth(0)).toHaveText('1');
+  await expect(cells(page).nth(1).locator('.candidates')).toContainText('4');
+  await expect(fillCount(page)).toHaveText('70 / 81');
+  // The clock picks up where it left off rather than restarting.
+  await expect(clock(page)).not.toHaveText(/0:0[01]/);
+});
+
+test('progress reaches a tab opened later', async ({ page, context }) => {
+  await page.goto(`/?s=${SINGLES}`);
+  await cells(page).nth(0).click();
+  await page.keyboard.press('1');
+  await expect(cells(page).nth(0)).toHaveText('1');
+  await page.close();
+
+  // Progress outlives the tab that made it.
+  const later = await context.newPage();
+  await later.goto(`/?s=${SINGLES}`);
+  await expect(resumedBadge(later)).toHaveText('resumed');
+  await expect(cells(later).nth(0)).toHaveText('1');
+});
+
+test('returning to an earlier puzzle resumes it', async ({ page }) => {
+  await page.goto(`/?s=${SINGLES}`);
+  await cells(page).nth(0).click();
+  await page.keyboard.press('1');
+
+  // Play something else, then come back to the first puzzle's URL.
+  await page.getByRole('button', { name: 'New game' }).click();
+  await expect(resumedBadge(page)).toHaveCount(0);
+  await page.goto(`/?s=${SINGLES}`);
+  await expect(resumedBadge(page)).toHaveText('resumed');
+  await expect(cells(page).nth(0)).toHaveText('1');
+});
+
+test('a solved puzzle comes back solved', async ({ page }) => {
+  await page.goto(`/?s=${SINGLES}`);
+  await page.keyboard.press('f');
+  await expect(page.locator('.overlay h2')).toHaveText('Solved!', {
+    timeout: 15_000,
+  });
+  await page.reload();
+  await expect(page.locator('.overlay h2')).toHaveText('Solved!');
+  await expect(fillCount(page)).toHaveText('81 / 81');
+  await expect(page.locator('sudoku-board .cell.autofilled')).toHaveCount(12);
 });
