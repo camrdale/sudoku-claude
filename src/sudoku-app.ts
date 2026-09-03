@@ -25,6 +25,23 @@ import { boing, ejectDigit, jelly, scream, shake } from './bonkers.js';
 import wilhelmScreamUrl from './assets/wilhelm-scream.mp3';
 import './sudoku-board.js';
 
+/**
+ * A restore point: the board as it stood before one user action, and before
+ * anything that action set off. Every field the app treats as immutable —
+ * replaced on change, never mutated — so a snapshot can hold the live
+ * references rather than copying them.
+ */
+interface Snapshot {
+  board: Board;
+  candidates: Set<number>[];
+  removedCandidates: Set<number>[];
+  autofilled: Set<number>;
+  won: boolean;
+}
+
+/** How many user actions can be taken back. */
+const MAX_UNDO = 100;
+
 /** State that makes up a player's progress, saved whenever it changes. */
 const SAVED_PROPERTIES = [
   'board',
@@ -53,6 +70,7 @@ export class SudokuApp extends LitElement {
     won: { state: true },
     elapsed: { state: true },
     resumed: { state: true },
+    undoStack: { state: true },
   };
 
   declare difficulty: Difficulty;
@@ -69,6 +87,7 @@ export class SudokuApp extends LitElement {
   declare won: boolean;
   declare elapsed: number;
   declare resumed: boolean;
+  declare undoStack: Snapshot[];
 
   constructor() {
     super();
@@ -293,6 +312,7 @@ export class SudokuApp extends LitElement {
     this.candidatesMode = false;
     this.won = false;
     this.resumed = false;
+    this.undoStack = [];
     this.elapsed = 0;
     this.#startTime = Date.now();
     if (this.autofill) this.#runAutofill();
@@ -336,6 +356,42 @@ export class SudokuApp extends LitElement {
       difficulty: this.difficulty,
       won: this.won,
     });
+  }
+
+  /** Remember the current state, so the action about to happen can be undone. */
+  #snapshot(): void {
+    this.undoStack = [
+      ...this.undoStack.slice(1 - MAX_UNDO),
+      {
+        board: this.board,
+        candidates: this.candidates,
+        removedCandidates: this.removedCandidates,
+        autofilled: this.autofilled,
+        won: this.won,
+      },
+    ];
+  }
+
+  /**
+   * Take back the last user action along with every cell the autofill
+   * cascade filled because of it — the reason Undo exists is that one wrong
+   * entry can set off a long, confidently wrong sequence.
+   *
+   * A cascade in flight is cancelled and deliberately not restarted: with
+   * Fill still on, restarting could immediately refill what was just undone,
+   * which is exactly the trap the user is trying to escape. The next entry
+   * starts the cascade again as usual.
+   */
+  #undo(): void {
+    const previous = this.undoStack.at(-1);
+    if (!previous) return;
+    this.#autofillToken++;
+    this.undoStack = this.undoStack.slice(0, -1);
+    this.board = previous.board;
+    this.candidates = previous.candidates;
+    this.removedCandidates = previous.removedCandidates;
+    this.autofilled = previous.autofilled;
+    this.won = previous.won;
   }
 
   get #conflicts(): Set<number> {
@@ -384,6 +440,7 @@ export class SudokuApp extends LitElement {
 
     if (this.candidatesMode && value !== EMPTY) {
       if (this.board[i] !== EMPTY) return;
+      this.#snapshot();
       if (this.autoCandidates) {
         // Toggle the mark's exclusion; the rest stays derived from the board.
         const removed = new Set(this.removedCandidates[i]);
@@ -404,8 +461,12 @@ export class SudokuApp extends LitElement {
     }
 
     const previous = this.board[i];
+    const next = previous === value ? EMPTY : value;
+    // Erasing an already empty cell changes nothing worth undoing.
+    if (next === previous) return;
+    this.#snapshot();
     const board = this.board.slice();
-    board[i] = board[i] === value ? EMPTY : value;
+    board[i] = next;
     this.#place(i, board);
     if (this.autofilled.has(i)) {
       // The user took over this cell; it is no longer an automatic entry.
@@ -413,7 +474,7 @@ export class SudokuApp extends LitElement {
       autofilled.delete(i);
       this.autofilled = autofilled;
     }
-    if (this.bonkers) this.#goBonkers(i, previous, board[i]);
+    if (this.bonkers) this.#goBonkers(i, previous, next);
     this.#runAutofill();
   }
 
@@ -572,6 +633,12 @@ export class SudokuApp extends LitElement {
     } else if (event.key.toLowerCase() === 'b') {
       this.bonkers = !this.bonkers;
       if (this.bonkers) boing();
+    } else if (
+      event.key.toLowerCase() === 'u' ||
+      (event.key.toLowerCase() === 'z' && (event.ctrlKey || event.metaKey))
+    ) {
+      event.preventDefault();
+      this.#undo();
     }
   };
 
@@ -672,6 +739,13 @@ export class SudokuApp extends LitElement {
           }}
         >
           🤪 Bonkers ${this.bonkers ? 'on' : 'off'}
+        </button>
+        <button
+          class="btn"
+          ?disabled=${this.undoStack.length === 0}
+          @click=${() => this.#undo()}
+        >
+          ↶ Undo
         </button>
         <button class="btn" @click=${() => this.#setValue(EMPTY)}>
           ⌫ Erase

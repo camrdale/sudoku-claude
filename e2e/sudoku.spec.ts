@@ -26,6 +26,10 @@ function resumedBadge(page: Page): Locator {
   return page.locator('.status .resumed');
 }
 
+function undo(page: Page): Locator {
+  return page.locator('.actions .btn', { hasText: 'Undo' });
+}
+
 function toggle(page: Page, label: string): Locator {
   return page.locator('.actions .btn', { hasText: label });
 }
@@ -149,6 +153,53 @@ test('autofill singles cascades to a win with celebration', async ({
   await expect(fillCount(page)).toHaveText('81 / 81');
   await expect(page.locator('sudoku-board .cell.autofilled')).toHaveCount(12);
   await expect(page.locator('.overlay canvas.confetti')).toBeVisible();
+});
+
+test('undo takes back the last entry', async ({ page }) => {
+  await page.goto(`/?s=${SINGLES}`);
+  await expect(undo(page)).toBeDisabled();
+  await cells(page).nth(0).click();
+  await page.keyboard.press('1');
+  await expect(fillCount(page)).toHaveText('70 / 81');
+
+  await undo(page).click();
+  await expect(cells(page).nth(0)).toHaveText('');
+  await expect(fillCount(page)).toHaveText('69 / 81');
+  // Nothing left to take back.
+  await expect(undo(page)).toBeDisabled();
+});
+
+test('undo takes back a pencil mark from the keyboard', async ({ page }) => {
+  await page.goto(`/?s=${SINGLES}`);
+  await cells(page).nth(0).click();
+  await page.keyboard.press('c');
+  await page.keyboard.press('3');
+  await expect(cells(page).nth(0).locator('.candidates')).toContainText('3');
+  await page.keyboard.press('u');
+  await expect(cells(page).nth(0).locator('.candidates')).toHaveCount(0);
+});
+
+test('undo backs out an entry error and the autofill it set off', async ({
+  page,
+}) => {
+  await page.goto(`/?s=${SINGLES}`);
+  await cells(page).nth(0).click();
+  await page.keyboard.press('3'); // wrong: cell 0's only candidate is 1
+  await page.keyboard.press('f'); // Fill cascades on from the bad entry
+  await expect(fillCount(page)).toHaveText('80 / 81', { timeout: 15_000 });
+  await expect(page.locator('sudoku-board .cell.autofilled')).toHaveCount(10);
+
+  // One press goes back past the whole cascade to before the bad entry.
+  await undo(page).click();
+  await expect(fillCount(page)).toHaveText('69 / 81');
+  await expect(cells(page).nth(0)).toHaveText('');
+  await expect(page.locator('sudoku-board .cell.autofilled')).toHaveCount(0);
+  await expect(undo(page)).toBeDisabled();
+
+  // Fill is still on, but it does not immediately refill what was undone.
+  await expect(toggle(page, 'Fill')).toHaveAttribute('aria-pressed', 'true');
+  await page.waitForTimeout(1200);
+  await expect(fillCount(page)).toHaveText('69 / 81');
 });
 
 test('bonkers mode ejects an overwritten digit', async ({ page }) => {
